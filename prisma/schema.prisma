@@ -4,9 +4,10 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// Prisma schema for a realistic banking backend
+
 generator client {
   provider = "prisma-client-js"
-  // output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -14,57 +15,97 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-model User {
-  id        String       @id @default(cuid())
-  email     String       @unique
-  name      String?
-  password  String
-  accounts  Account[]
-  wallets   Wallet[]     // A user can have many wallets
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+// -------------------------
+// Enums
+// -------------------------
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
 }
 
-model Account {
-  id                String   @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
 
-  @@unique([provider, providerAccountId])
+enum Currency {
+  NGN
+  USD
+  EUR
+  GBP
+  // Add more as needed
+}
+
+// -------------------------
+// Models
+// -------------------------
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  password     String
+  bankAccounts BankAccount[] 
+  wallets      Wallet[]
+  audits       AuditLog[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model BankAccount {
+  id            String       @id @default(cuid())
+  accountNumber String       @unique
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountType   String       // "Checking", "Savings", etc.
+  balance       Float        @default(0)
+  currency      Currency
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  outgoingTx    Transaction[] @relation("fromAccount")
+  incomingTx    Transaction[] @relation("toAccount")
 }
 
 model Wallet {
-  id        String         @id @default(cuid())
-  name      String
-  balance   Float          @default(0)
-  currency  String
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  transactions Transaction[] // A wallet can have many transactions
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  id            String        @id @default(cuid())
+  name          String
+  balance       Float         @default(0)
+  currency      Currency
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedAccount String?       // Optional: link to BankAccount.id
+  transactions  Transaction[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model Transaction {
-  id          String   @id @default(cuid())
-  amount      Float
-  type        String
-  category    String
-  date        DateTime @default(now())
-  notes       String?
-  walletId    String
-  wallet      Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String            @id @default(cuid())
+  amount        Float
+  type          TransactionType
+  category      String?
+  date          DateTime          @default(now())
+  notes         String?
+  walletId      String?           // optional if transaction is bank account transfer
+  fromAccountId String?           
+  toAccountId   String?
+  status        TransactionStatus @default(PENDING)
+  reference     String            @unique
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  wallet        Wallet?           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  fromAccount   BankAccount?      @relation("fromAccount", fields: [fromAccountId], references: [id])
+  toAccount     BankAccount?      @relation("toAccount", fields: [toAccountId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 }
