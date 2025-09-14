@@ -37,7 +37,11 @@ enum Currency {
   GBP
   // Add more as needed
 }
-
+enum AccountType {
+  Savings
+  CURRENT
+  FIXED_DEPOSIT
+}
 // -------------------------
 // Models
 // -------------------------
@@ -45,8 +49,10 @@ enum Currency {
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
-  name         String?
+  firstName    String
+  lastName     String
   password     String
+  phone        String?
   bankAccounts BankAccount[] 
   wallets      Wallet[]
   audits       AuditLog[]
@@ -59,7 +65,7 @@ model BankAccount {
   accountNumber String       @unique
   userId        String
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountType   String       // "Checking", "Savings", etc.
+  accountType   AccountType  @default(Savings)     // "Checking", "Savings", etc.
   balance       Float        @default(0)
   currency      Currency
   createdAt     DateTime     @default(now())
